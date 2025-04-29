@@ -13,3 +13,9 @@ services:
     restart: unless-stopped
     volumes:
       - ./.env:/app/.env 
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
