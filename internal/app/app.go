@@ -9,6 +9,8 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	"weatherbot/internal/config"
+	"weatherbot/internal/config/env"
 	"weatherbot/internal/routes"
 
 	"go.uber.org/zap"
@@ -19,6 +21,8 @@ import (
 type App struct {
 	httpServer *http.Server
 
+	httpCfg config.HTTPConfig
+
 	log *zap.Logger
 }
 
@@ -27,6 +31,7 @@ func New(ctx context.Context) (*App, error) {
 
 	inits := []func(context.Context) error{
 		a.initLogger,
+		a.initConfig,
 		a.initHttpServer,
 	}
 
@@ -42,6 +47,9 @@ func New(ctx context.Context) (*App, error) {
 func (a *App) Run(ctx context.Context) error {
 	go func() {
 		if err := a.runHttpServer(); err != nil {
+			if err == http.ErrServerClosed {
+				return
+			}
 			a.log.Error("failed run server", zap.Error(err))
 			os.Exit(1)
 		}
@@ -56,10 +64,19 @@ func (a *App) Run(ctx context.Context) error {
 	a.log.Info("Shutting down HTTP server...")
 	err := a.httpServer.Shutdown(ctx)
 	if err != nil {
-		a.log.Error("failed shotdown server", zap.Error(err))
+		a.log.Error("failed shutdown server", zap.Error(err))
 		return err
 	}
 	a.log.Info("HTTP server stopped")
+
+	return nil
+}
+
+func (a *App) initConfig(_ context.Context) error {
+	err := config.Load(".env")
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -79,7 +96,7 @@ func (a *App) initHttpServer(ctx context.Context) error {
 		mux := routes.SetupRoutes()
 
 		srv := &http.Server{
-			Addr:           "0.0.0.0:443",
+			Addr:           a.httpConfig().Address(),
 			Handler:        mux,
 			ReadTimeout:    10 * time.Second,
 			WriteTimeout:   10 * time.Second,
@@ -95,6 +112,20 @@ func (a *App) runHttpServer() error {
 	a.log.Info("http server start", zap.String("address", a.httpServer.Addr))
 
 	return a.httpServer.ListenAndServe()
+}
+
+func (a *App) httpConfig() config.HTTPConfig {
+	if a.httpCfg == nil {
+		cfg, err := env.NewHTTPConfig()
+		if err != nil {
+			a.log.Error("failed load http config", zap.Error(err))
+			os.Exit(1)
+		}
+
+		a.httpCfg = cfg
+	}
+
+	return a.httpCfg
 }
 
 var logFilePath string
