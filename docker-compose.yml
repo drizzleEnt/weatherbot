@@ -12,7 +12,8 @@ services:
       - .env 
     restart: unless-stopped
     volumes:
-      - ./.env:/app/.env 
+      - ./.env:/app/.env\
+    network_mode: "host" 
     networks:
       - app-network
 
