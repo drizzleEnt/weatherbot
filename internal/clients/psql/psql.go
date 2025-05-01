@@ -2,24 +2,26 @@ package psql
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"weatherbot/internal/clients"
+
+	"github.com/jackc/pgx/v5"
+	_ "github.com/lib/pq"
 )
 
 type dbClient struct {
-	db *sql.DB
+	db *pgx.Conn
 }
 
 var _ clients.DBClient = (*dbClient)(nil)
 
 func NewClient(ctx context.Context, dsn string) (*dbClient, error) {
-	cl, err := sql.Open("postgres", dsn)
+	cl, err := pgx.Connect(ctx, dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed open sql client: %w", err)
 	}
 
-	err = cl.Ping()
+	err = cl.Ping(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed ping sql db: %w", err)
 	}
@@ -35,6 +37,6 @@ func (d *dbClient) Close() error {
 }
 
 // DB implements clients.DBClient.
-func (d *dbClient) DB() *sql.DB {
+func (d *dbClient) DB() *pgx.Conn {
 	return d.db
 }

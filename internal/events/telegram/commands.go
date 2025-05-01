@@ -1,8 +1,11 @@
 package telegram
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"strings"
+	"weatherbot/internal/domain"
 )
 
 const (
@@ -14,14 +17,19 @@ const (
 func (p *processor) doCmd(text string, chatID int, username string) error {
 	text = strings.TrimSpace(text)
 
-	fmt.Printf("text: %v\n", text)
-	switch text {
+	incomeArr := strings.Split(text, " ")
+	cmd := incomeArr[0]
+
+	switch cmd {
 	case HelpCmd:
 		return p.sendHelp(chatID)
 	case StartCmd:
 		return p.sendHello(chatID, username)
 	case WeatherCmd:
-		return p.sendWeather(chatID, text)
+		if len(incomeArr) < 2 {
+			incomeArr = append(incomeArr, "")
+		}
+		return p.sendWeather(chatID, incomeArr[1])
 	default:
 		p.sendUnknownCommand(chatID, username)
 	}
@@ -39,21 +47,17 @@ func (p *processor) sendHello(chatID int, username string) error {
 }
 
 func (p *processor) sendWeather(chatID int, income string) error {
-	incomeArr := strings.Split(income, " ")
+	err := p.s.GetWeather(context.Background(), income, chatID)
+	if err != nil {
+		if errors.Is(err, domain.MainCityNotSetErr) {
+			return p.tg.SendMessage(msgCityErr, chatID)
+		}
 
-	if len(incomeArr) < 2 {
-		// Find city in repo
-
-		//if non send err
-
-		return p.tg.SendMessage(msgCityErr, chatID)
+		return p.tg.SendMessage("error "+err.Error(), chatID)
 	}
-
-	// add city in repo
-
 	//send forecast
 
-	return nil
+	return p.tg.SendMessage(income, chatID)
 }
 
 func (p *processor) sendUnknownCommand(chatID int, username string) error {

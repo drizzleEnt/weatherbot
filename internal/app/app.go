@@ -43,6 +43,7 @@ type App struct {
 
 	httpCfg config.HTTPConfig
 	tgCfg   config.BotConfig
+	dbCfg   config.PGConfig
 
 	log *zap.Logger
 }
@@ -111,12 +112,11 @@ func (a *App) initConfig(_ context.Context) error {
 
 func (a *App) DBClient(ctx context.Context) clients.DBClient {
 	if a.dbClient == nil {
-		dbClient, err := psql.NewClient(ctx, "")
+		dbClient, err := psql.NewClient(ctx, a.DBConfig().Address())
 		if err != nil {
 			a.Logger().Error("failed get db client", zap.Error(err))
 			os.Exit(1)
 		}
-
 		a.dbClient = dbClient
 	}
 
@@ -228,6 +228,20 @@ func (a *App) HTTPConfig() config.HTTPConfig {
 	}
 
 	return a.httpCfg
+}
+
+func (a *App) DBConfig() config.PGConfig {
+	if a.dbCfg == nil {
+		cfg, err := env.NewPGConfig()
+		if err != nil {
+			a.Logger().Error("failed load http config", zap.Error(err))
+			os.Exit(1)
+		}
+
+		a.dbCfg = cfg
+	}
+
+	return a.dbCfg
 }
 
 var logFilePath string

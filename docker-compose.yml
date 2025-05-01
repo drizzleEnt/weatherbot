@@ -8,6 +8,8 @@ services:
     container_name: bot-server
     ports:
       - "8443:8443"
+    environment:
+       DB_HOST: postgres
     env_file:
       - .env 
     restart: unless-stopped

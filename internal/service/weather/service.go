@@ -1,6 +1,7 @@
 package weather
 
 import (
+	"context"
 	"weatherbot/internal/repository"
 	"weatherbot/internal/service"
 )
@@ -18,7 +19,17 @@ func NewService(r repository.WeatherRepository) *weatherService {
 }
 
 // GetWeather implements service.WeatherService.
-func (w *weatherService) GetWeather() {
+func (w *weatherService) GetWeather(ctx context.Context, city string, chatID int) error {
+	if city == "" {
+		mainCity, err := w.r.GetUserCity(ctx, chatID)
+		if err != nil {
+			return err
+		}
+		city = mainCity
+	}
+
+	w.r.GetGeodata()
+
 	panic("unimplemented")
 }
 

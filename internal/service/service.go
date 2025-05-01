@@ -1,5 +1,7 @@
 package service
 
+import "context"
+
 type WeatherService interface {
-	GetWeather()
+	GetWeather(ctx context.Context, city string, chatID int) error
 }

@@ -1,8 +1,9 @@
 package clients
 
 import (
-	"database/sql"
 	"weatherbot/internal/domain/telegram"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type TelegramClient interface {
@@ -11,6 +12,6 @@ type TelegramClient interface {
 }
 
 type DBClient interface {
-	DB() *sql.DB
+	DB() *pgx.Conn
 	Close() error
 }

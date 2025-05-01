@@ -6,7 +6,7 @@ CREATE TABLE users(
 
 CREATE TABLE cities(
     chat_id BIGINT NOT NULL,
-    main_city TEXT,
+    main_city TEXT NOT NULL,
     other_cities TEXT[]
 );
 
