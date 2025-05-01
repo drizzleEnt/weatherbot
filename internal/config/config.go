@@ -19,3 +19,7 @@ type BotConfig interface {
 	Token() string
 	Host() string
 }
+
+type PGConfig interface {
+	Address() string
+}

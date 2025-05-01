@@ -15,7 +15,33 @@ services:
       - ./.env:/app/.env\
     networks:
       - app-network
+  postgres:
+    image: postgres:14.0
+    container_name: postgres-container
+    restart: unless-stopped
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${PG_USER}
+      POSTGRES_PASSWORD: ${PG_PASSWORD}
+      POSTGRES_DB: ${PG_DATABASE_NAME}
+    ports:
+      - "5432:${PG_PORT}"
+    networks:
+      - app-network
+  migrator:
+    build:
+      context: .
+      dockerfile: docker/migrations.Dockerfile
+    restart: on-failure
+    environment:
+       DB_HOST: postgres
+    networks:
+      - app-network
 
 networks:
   app-network:
     driver: bridge
+
+volumes:
+  postgres-data:

@@ -2,8 +2,10 @@ package telegram
 
 import (
 	"fmt"
-	"weatherbot/internal/clients/telegram"
+	"weatherbot/internal/clients"
+	tgdomain "weatherbot/internal/domain/telegram"
 	"weatherbot/internal/events"
+	"weatherbot/internal/service"
 )
 
 var _ events.Processor = (*processor)(nil)
@@ -15,13 +17,15 @@ type Meta struct {
 }
 
 type processor struct {
-	tg     *telegram.Client
+	tg     clients.TelegramClient
+	s      service.WeatherService
 	offset int
 }
 
-func New(tgClient *telegram.Client) *processor {
+func New(tgClient clients.TelegramClient, s service.WeatherService) *processor {
 	return &processor{
 		tg: tgClient,
+		s:  s,
 	}
 }
 
@@ -83,7 +87,7 @@ func meta(e events.Event) (Meta, error) {
 	return res, nil
 }
 
-func event(upd telegram.Update) events.Event {
+func event(upd tgdomain.Update) events.Event {
 	updType := fetchType(upd)
 
 	res := events.Event{
@@ -101,7 +105,7 @@ func event(upd telegram.Update) events.Event {
 	return res
 }
 
-func fetchText(upd telegram.Update) string {
+func fetchText(upd tgdomain.Update) string {
 	if upd.Message == nil {
 		return ""
 	}
@@ -109,7 +113,7 @@ func fetchText(upd telegram.Update) string {
 	return upd.Message.Text
 }
 
-func fetchType(upd telegram.Update) events.Type {
+func fetchType(upd tgdomain.Update) events.Type {
 	if upd.Message == nil {
 		return events.Unknown
 	}

@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"path"
 	"strconv"
+	"weatherbot/internal/domain/telegram"
 )
 
 const (
@@ -15,7 +16,7 @@ const (
 	sendMessageMethod = "sendMessage"
 )
 
-func (c *Client) Updates(offset int, limit int) ([]Update, error) {
+func (c *Client) Updates(offset int, limit int) ([]telegram.Update, error) {
 	q := url.Values{}
 
 	q.Add("offset", strconv.Itoa(offset))
@@ -26,7 +27,7 @@ func (c *Client) Updates(offset int, limit int) ([]Update, error) {
 		return nil, fmt.Errorf("failed do request %w", err)
 	}
 
-	var upds UpdateResponse
+	var upds telegram.UpdateResponse
 
 	if err := json.Unmarshal(data, &upds); err != nil {
 		return nil, fmt.Errorf("failed unmarshal income data: %w", err)
@@ -68,6 +69,10 @@ func (c *Client) doRequest(method string, query url.Values) ([]byte, error) {
 		return nil, fmt.Errorf("failed exec request: %w", err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed get updates: %v", resp.StatusCode)
+	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

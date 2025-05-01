@@ -45,7 +45,6 @@ func (c *consumer) Start() error {
 }
 
 func (c *consumer) handleEvent(events []events.Event) error {
-	c.log.Info("Start process ...")
 	errs := make([]error, 0)
 	for _, e := range events {
 		c.log.Info("got new event:", zap.String("msg", e.Text))
