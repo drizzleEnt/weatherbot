@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"path"
 	"strconv"
 )
 
@@ -52,7 +53,7 @@ func (c *Client) doRequest(method string, query url.Values) ([]byte, error) {
 	u := url.URL{
 		Scheme: "https",
 		Host:   c.host,
-		Path:   c.basePath,
+		Path:   path.Join(c.basePath, method),
 	}
 
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
@@ -68,7 +69,7 @@ func (c *Client) doRequest(method string, query url.Values) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(req.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed read response body: %w", err)
 	}

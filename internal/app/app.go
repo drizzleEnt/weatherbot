@@ -9,8 +9,13 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	tg "weatherbot/internal/clients/telegram"
 	"weatherbot/internal/config"
 	"weatherbot/internal/config/env"
+	"weatherbot/internal/consumer"
+	eventconsumer "weatherbot/internal/consumer/event-consumer"
+	"weatherbot/internal/events"
+	"weatherbot/internal/events/telegram"
 	"weatherbot/internal/routes"
 
 	"go.uber.org/zap"
@@ -20,8 +25,14 @@ import (
 
 type App struct {
 	httpServer *http.Server
+	tgClient   *tg.Client
+
+	consumer  consumer.Consumer
+	processor events.Processor
+	fetcher   events.Fetcher
 
 	httpCfg config.HTTPConfig
+	tgCfg   config.BotConfig
 
 	log *zap.Logger
 }
@@ -30,7 +41,6 @@ func New(ctx context.Context) (*App, error) {
 	a := App{}
 
 	inits := []func(context.Context) error{
-		a.initLogger,
 		a.initConfig,
 		a.initHttpServer,
 	}
@@ -50,7 +60,15 @@ func (a *App) Run(ctx context.Context) error {
 			if err == http.ErrServerClosed {
 				return
 			}
-			a.log.Error("failed run server", zap.Error(err))
+			a.Logger().Error("failed run server", zap.Error(err))
+			os.Exit(1)
+		}
+	}()
+
+	go func() {
+		a.Logger().Info("Telegram consumer start ...")
+		if err := a.Consumer().Start(); err != nil {
+			a.Logger().Error("failed start Telegram consumer", zap.Error(err))
 			os.Exit(1)
 		}
 	}()
@@ -61,13 +79,13 @@ func (a *App) Run(ctx context.Context) error {
 
 	<-stop
 
-	a.log.Info("Shutting down HTTP server...")
+	a.Logger().Info("Shutting down HTTP server...")
 	err := a.httpServer.Shutdown(ctx)
 	if err != nil {
-		a.log.Error("failed shutdown server", zap.Error(err))
+		a.Logger().Error("failed shutdown server", zap.Error(err))
 		return err
 	}
-	a.log.Info("HTTP server stopped")
+	a.Logger().Info("HTTP server stopped")
 
 	return nil
 }
@@ -81,14 +99,46 @@ func (a *App) initConfig(_ context.Context) error {
 	return nil
 }
 
-func (a *App) initLogger(ctx context.Context) error {
+func (a *App) Client() *tg.Client {
+	if a.tgClient == nil {
+		a.tgClient = tg.NewClient(a.TelegramConfig().Host(), a.TelegramConfig().Token())
+	}
+
+	return a.tgClient
+}
+
+func (a *App) Consumer() consumer.Consumer {
+	if a.consumer == nil {
+		a.consumer = eventconsumer.New(a.Fetcher(), a.Processor(), 100, a.Logger())
+	}
+
+	return a.consumer
+}
+
+func (a *App) Fetcher() events.Fetcher {
+	if a.fetcher == nil {
+		a.fetcher = telegram.New(a.Client())
+	}
+
+	return a.fetcher
+}
+
+func (a *App) Processor() events.Processor {
+	if a.processor == nil {
+		a.processor = telegram.New(a.Client())
+	}
+
+	return a.processor
+}
+
+func (a *App) Logger() *zap.Logger {
 	if a.log == nil {
 		logger := zap.New(getCore(getAtomicLevel()))
 
 		a.log = logger
 	}
 
-	return nil
+	return a.log
 }
 
 func (a *App) initHttpServer(ctx context.Context) error {
@@ -96,7 +146,7 @@ func (a *App) initHttpServer(ctx context.Context) error {
 		mux := routes.SetupRoutes()
 
 		srv := &http.Server{
-			Addr:           a.httpConfig().Address(),
+			Addr:           a.HTTPConfig().Address(),
 			Handler:        mux,
 			ReadTimeout:    10 * time.Second,
 			WriteTimeout:   10 * time.Second,
@@ -109,16 +159,29 @@ func (a *App) initHttpServer(ctx context.Context) error {
 }
 
 func (a *App) runHttpServer() error {
-	a.log.Info("http server start", zap.String("address", a.httpServer.Addr))
+	a.Logger().Info("http server start", zap.String("address", a.httpServer.Addr))
 
 	return a.httpServer.ListenAndServe()
 }
 
-func (a *App) httpConfig() config.HTTPConfig {
+func (a *App) TelegramConfig() config.BotConfig {
+	if a.tgCfg == nil {
+		cfg, err := env.NewBotConfig()
+		if err != nil {
+			a.Logger().Error("failed load telegram config", zap.Error(err))
+			os.Exit(1)
+		}
+		a.tgCfg = cfg
+	}
+
+	return a.tgCfg
+}
+
+func (a *App) HTTPConfig() config.HTTPConfig {
 	if a.httpCfg == nil {
 		cfg, err := env.NewHTTPConfig()
 		if err != nil {
-			a.log.Error("failed load http config", zap.Error(err))
+			a.Logger().Error("failed load http config", zap.Error(err))
 			os.Exit(1)
 		}
 

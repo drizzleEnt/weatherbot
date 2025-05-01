@@ -29,7 +29,7 @@ func New(tgClient *telegram.Client) *processor {
 func (p *processor) Process(e events.Event) error {
 	switch e.Type {
 	case events.Message:
-		return processMessage(e)
+		return p.processMessage(e)
 	case events.Unknown:
 	default:
 	}
@@ -38,17 +38,38 @@ func (p *processor) Process(e events.Event) error {
 }
 
 // Fetch implements events.Fetcher.
-func (p *processor) Fetch() ([]events.Event, error) {
-	panic("unimplemented")
+func (p *processor) Fetch(limit int) ([]events.Event, error) {
+	upds, err := p.tg.Updates(p.offset, limit)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(upds) == 0 {
+		return nil, nil
+	}
+
+	res := make([]events.Event, 0, len(upds))
+
+	for _, u := range upds {
+		res = append(res, event(u))
+	}
+
+	p.offset = upds[len(upds)-1].ID + 1
+
+	return res, nil
 }
 
-func processMessage(e events.Event) error {
+func (p *processor) processMessage(e events.Event) error {
 	meta, err := meta(e)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("meta: %v\n", meta)
+	if err := p.doCmd(e.Text, meta.ChatID, meta.Username); err != nil {
+		return fmt.Errorf("failed do cmd %w", err)
+	}
+
 	return nil
 
 }
@@ -60,4 +81,38 @@ func meta(e events.Event) (Meta, error) {
 	}
 
 	return res, nil
+}
+
+func event(upd telegram.Update) events.Event {
+	updType := fetchType(upd)
+
+	res := events.Event{
+		Type: updType,
+		Text: fetchText(upd),
+	}
+
+	if updType == events.Message {
+		res.Meta = Meta{
+			ChatID:   upd.Message.Chat.ID,
+			Username: upd.Message.From.Username,
+		}
+	}
+
+	return res
+}
+
+func fetchText(upd telegram.Update) string {
+	if upd.Message == nil {
+		return ""
+	}
+
+	return upd.Message.Text
+}
+
+func fetchType(upd telegram.Update) events.Type {
+	if upd.Message == nil {
+		return events.Unknown
+	}
+
+	return events.Message
 }

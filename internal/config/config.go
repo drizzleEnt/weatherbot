@@ -14,3 +14,8 @@ func Load(path string) error {
 type HTTPConfig interface {
 	Address() string
 }
+
+type BotConfig interface {
+	Token() string
+	Host() string
+}

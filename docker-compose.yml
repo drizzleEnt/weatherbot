@@ -13,7 +13,6 @@ services:
     restart: unless-stopped
     volumes:
       - ./.env:/app/.env\
-    network_mode: "host" 
     networks:
       - app-network
 
