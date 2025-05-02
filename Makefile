@@ -9,6 +9,7 @@ compose := docker compose
 LOCAL_BIN:=$(CURDIR)/bin
 
 install-debs:
+	mkdir -p bin
 	GOBIN=$(LOCAL_BIN) go install github.com/pressly/goose/v3/cmd/goose@latest
 
 init:
