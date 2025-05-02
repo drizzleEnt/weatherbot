@@ -24,7 +24,7 @@ func (c *Client) Updates(offset int, limit int) ([]telegram.Update, error) {
 
 	data, err := c.doRequest(getUpdatesMethod, q)
 	if err != nil {
-		return nil, fmt.Errorf("failed do request %w", err)
+		return nil, fmt.Errorf("failed get updates %w", err)
 	}
 
 	var upds telegram.UpdateResponse
@@ -44,7 +44,7 @@ func (c *Client) SendMessage(text string, chatID int) error {
 
 	_, err := c.doRequest(sendMessageMethod, q)
 	if err != nil {
-		return fmt.Errorf("failed do request %w", err)
+		return fmt.Errorf("failed send message %w", err)
 	}
 
 	return nil

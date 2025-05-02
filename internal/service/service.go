@@ -1,7 +1,10 @@
 package service
 
-import "context"
+import (
+	"context"
+	"weatherbot/internal/domain"
+)
 
 type WeatherService interface {
-	GetWeather(ctx context.Context, city string, chatID int) error
+	GetWeather(ctx context.Context, userInfoIncome domain.UserInfo) error
 }

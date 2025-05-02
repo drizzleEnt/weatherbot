@@ -29,7 +29,7 @@ func (p *processor) doCmd(text string, chatID int, username string) error {
 		if len(incomeArr) < 2 {
 			incomeArr = append(incomeArr, "")
 		}
-		return p.sendWeather(chatID, incomeArr[1])
+		return p.sendWeather(chatID, incomeArr[1], username)
 	default:
 		p.sendUnknownCommand(chatID, username)
 	}
@@ -46,8 +46,14 @@ func (p *processor) sendHello(chatID int, username string) error {
 	return p.tg.SendMessage(msg, chatID)
 }
 
-func (p *processor) sendWeather(chatID int, income string) error {
-	err := p.s.GetWeather(context.Background(), income, chatID)
+func (p *processor) sendWeather(chatID int, income string, username string) error {
+	userInfo := domain.UserInfo{
+		Username: username,
+		ChatID:   chatID,
+		City:     income,
+	}
+
+	err := p.s.GetWeather(context.Background(), userInfo)
 	if err != nil {
 		if errors.Is(err, domain.MainCityNotSetErr) {
 			return p.tg.SendMessage(msgCityErr, chatID)
@@ -57,7 +63,7 @@ func (p *processor) sendWeather(chatID int, income string) error {
 	}
 	//send forecast
 
-	return p.tg.SendMessage(income, chatID)
+	return p.tg.SendMessage("weather forecast", chatID)
 }
 
 func (p *processor) sendUnknownCommand(chatID int, username string) error {

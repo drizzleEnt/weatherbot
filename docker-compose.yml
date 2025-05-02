@@ -1,22 +1,22 @@
 version: "3.9"
 
 services:
-  server:
-    build:
-      context: .
-      dockerfile: docker/server.Dockerfile
-    container_name: bot-server
-    ports:
-      - "8443:8443"
-    environment:
-       DB_HOST: postgres
-    env_file:
-      - .env 
-    restart: unless-stopped
-    volumes:
-      - ./.env:/app/.env\
-    networks:
-      - app-network
+  # server:
+  #   build:
+  #     context: .
+  #     dockerfile: docker/server.Dockerfile
+  #   container_name: bot-server
+  #   ports:
+  #     - "8443:8443"
+  #   environment:
+  #      DB_HOST: postgres
+  #   env_file:
+  #     - .env 
+  #   restart: unless-stopped
+  #   volumes:
+  #     - ./.env:/app/.env\
+  #   networks:
+  #     - app-network
   postgres:
     image: postgres:14.0
     container_name: postgres-container
