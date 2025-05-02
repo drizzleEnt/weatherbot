@@ -1,6 +1,7 @@
 FROM golang:1.24 AS builder
 WORKDIR /app
 COPY go.mod ./
+COPY Makefile ./
 RUN go mod download
 RUN make install-debs
 COPY . .
