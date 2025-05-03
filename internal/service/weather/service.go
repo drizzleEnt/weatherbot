@@ -28,7 +28,7 @@ func NewService(r repository.WeatherRepository) *weatherService {
 }
 
 // GetWeather implements service.WeatherService.
-func (w *weatherService) GetWeather(ctx context.Context, userInfoIncome domain.UserInfo) error {
+func (w *weatherService) GetWeather(ctx context.Context, userInfoIncome domain.UserInfo) (*domain.WeatherDataResponse, error) {
 	cityInfo := domain.CityInfo{
 		CityName: userInfoIncome.City,
 	}
@@ -36,7 +36,7 @@ func (w *weatherService) GetWeather(ctx context.Context, userInfoIncome domain.U
 	if cityInfo.CityName == "" {
 		userInfo, err := w.r.GetUserInfo(ctx, userInfoIncome.ChatID)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		cityInfo.CityName = userInfo.City
 	}
@@ -46,18 +46,19 @@ func (w *weatherService) GetWeather(ctx context.Context, userInfoIncome domain.U
 		cityInfo.Latitude = cityInfoDB.Latitude
 		cityInfo.Longitude = cityInfoDB.Longitude
 
-		_, err := w.getWeatherFromAPI(strconv.FormatFloat(cityInfo.Latitude, 'f', 6, 64),
+		weatherData, err := w.getWeatherFromAPI(strconv.FormatFloat(cityInfo.Latitude, 'f', 6, 64),
 			strconv.FormatFloat(cityInfo.Longitude, 'f', 6, 64))
 		if err != nil {
-			return err
+			return nil, err
 		}
-		return nil
+
+		return weatherData, nil
 	}
 
 	if errors.Is(err, domain.CityNotFoundErr) {
 		cityInfoAPI, err := w.GetGeodataFromApi(cityInfo.CityName, userInfoIncome.Language)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		cityInfo.Latitude = cityInfoAPI.Latitude
@@ -65,23 +66,25 @@ func (w *weatherService) GetWeather(ctx context.Context, userInfoIncome domain.U
 
 		err = w.r.SetGeodata(ctx, cityInfo)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		err = w.r.SetUserInfo(ctx, userInfoIncome, cityInfo)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		_, err = w.getWeatherFromAPI(strconv.FormatFloat(cityInfo.Latitude, 'f', 6, 64),
+		weatherData, err := w.getWeatherFromAPI(strconv.FormatFloat(cityInfo.Latitude, 'f', 6, 64),
 			strconv.FormatFloat(cityInfo.Longitude, 'f', 6, 64))
 		if err != nil {
-			return err
+			return nil, err
 		}
-		return nil
+
+		fmt.Printf("weatherData: %v\n", weatherData)
+		return weatherData, nil
 	}
 
-	return nil
+	return nil, nil
 }
 
 func (w *weatherService) GetGeodataFromApi(city string, language string) (domain.CityInfo, error) {
@@ -116,7 +119,7 @@ func (w *weatherService) GetGeodataFromApi(city string, language string) (domain
 }
 
 // https://api.open-meteo.com/v1/forecast?latitude=52.52&longitude=13.41&hourly=temperature_2m&forecast_days=1
-func (w *weatherService) getWeatherFromAPI(latitude string, longitude string) (interface{}, error) {
+func (w *weatherService) getWeatherFromAPI(latitude string, longitude string) (*domain.WeatherDataResponse, error) {
 	q := url.Values{}
 	q.Add("hourly", "temperature_2m")
 	q.Add("forecast_days", "1")
@@ -125,11 +128,15 @@ func (w *weatherService) getWeatherFromAPI(latitude string, longitude string) (i
 
 	body, err := doApiRequest(q, "api.open-meteo.com", "/v1/forecast")
 	if err != nil {
-		return domain.CityInfo{}, errors.Wrap(err, "getWeatherFromAPI")
+		return nil, errors.Wrap(err, "getWeatherFromAPI")
+	}
+	var weatherData domain.WeatherDataResponse
+	err = json.Unmarshal(body, &weatherData)
+	if err != nil {
+		return nil, errors.Wrap(err, "getWeatherFromAPI.unmarshal")
 	}
 
-	fmt.Printf("body: %v\n", string(body))
-	return nil, nil
+	return &weatherData, nil
 }
 
 func doApiRequest(q url.Values, host string, path string) ([]byte, error) {

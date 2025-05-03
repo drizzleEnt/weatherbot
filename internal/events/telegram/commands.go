@@ -1,17 +1,19 @@
 package telegram
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 	"weatherbot/internal/domain"
 )
 
 const (
 	HelpCmd    = "/help"
 	StartCmd   = "/start"
-	WeatherCmd = "/weather"
+	WeatherCmd = "/w"
 )
 
 func (p *processor) doCmd(text string, chatID int, username string) error {
@@ -53,7 +55,7 @@ func (p *processor) sendWeather(chatID int, income string, username string) erro
 		City:     income,
 	}
 
-	err := p.s.GetWeather(context.Background(), userInfo)
+	weather, err := p.s.GetWeather(context.Background(), userInfo)
 	if err != nil {
 		if errors.Is(err, domain.MainCityNotSetErr) {
 			return p.tg.SendMessage(msgCityErr, chatID)
@@ -61,11 +63,43 @@ func (p *processor) sendWeather(chatID int, income string, username string) erro
 
 		return p.tg.SendMessage("error "+err.Error(), chatID)
 	}
-	//send forecast
+	msg, err := convertWeatherToMessage(weather)
+	if err != nil {
+		return p.tg.SendMessage("internal error", chatID)
+	}
 
-	return p.tg.SendMessage("weather forecast", chatID)
+	return p.tg.SendMessage(msg, chatID)
 }
 
 func (p *processor) sendUnknownCommand(chatID int, username string) error {
 	return nil
+}
+
+func convertWeatherToMessage(wd *domain.WeatherDataResponse) (string, error) {
+	if len(wd.Hourly.Time) == 0 {
+		return "", fmt.Errorf("failed get weather")
+	}
+
+	if len(wd.Hourly.Temperature2M) == 0 {
+		return "", fmt.Errorf("failed get weather")
+	}
+	const inputFormat = "2006-01-02T15:04"
+	var message bytes.Buffer
+
+	message.WriteString("*Прогноз погоды*\n\n")
+
+	message.WriteString("| Время     | Температура |\n")
+	message.WriteString("|-----------|-------------|\n")
+
+	for i := range wd.Hourly.Temperature2M {
+		parsedTime, err := time.Parse(inputFormat, wd.Hourly.Time[i])
+		if err != nil {
+			return "", fmt.Errorf("Failed parse time: %v", err)
+		}
+		message.WriteString(fmt.Sprintf("| `%s` | %.1f°C |\n", parsedTime.Format("15:04"), wd.Hourly.Temperature2M[i]))
+	}
+
+	message.WriteString(`\n☀️ Хорошего дня! 🌡️`)
+
+	return message.String(), nil
 }

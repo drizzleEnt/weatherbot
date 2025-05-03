@@ -20,3 +20,10 @@ type GeodataResponse struct {
 		Longitude float64 `json:"longitude"`
 	} `json:"results"`
 }
+
+type WeatherDataResponse struct {
+	Hourly struct {
+		Time          []string  `json:"time"`
+		Temperature2M []float64 `json:"temperature_2m"`
+	} `json:"hourly"`
+}

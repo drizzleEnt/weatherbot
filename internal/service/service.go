@@ -6,5 +6,5 @@ import (
 )
 
 type WeatherService interface {
-	GetWeather(ctx context.Context, userInfoIncome domain.UserInfo) error
+	GetWeather(ctx context.Context, userInfoIncome domain.UserInfo) (*domain.WeatherDataResponse, error)
 }
